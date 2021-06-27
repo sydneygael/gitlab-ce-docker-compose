@@ -20,6 +20,9 @@ services:
     # but fully open source.
     image: gitlab/gitlab-ce
     restart: unless-stopped
+    ports:
+      - '8929:8929'
+      - '2224:22'
     environment:
       VIRTUAL_HOST: gitlab-web
       LETSENCRYPT_HOST: gitlab-web
@@ -69,6 +72,8 @@ services:
     # exits.
     # Note that this process may add the same runner over and over across docker-compose
     # restarts. This does not seem to be a problem.
+    build:
+      context: ./runner
     image: gitlab/gitlab-runner:register
     environment:
       - VIRTUAL_HOST
