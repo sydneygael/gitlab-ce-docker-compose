@@ -1,0 +1,79 @@
+version: "3.8"
+
+volumes:
+  config:
+  logs:
+  data:
+  runner_config:
+
+networks:
+  # Join the same network as the reverse proxy from a parallel docker compose.
+  # See also https://stackoverflow.com/a/38089080/11477374
+  # The part before the first underscore of the network name is the parallel
+  # docker-compose project name, which defaults to the directory name.
+  proxy_default:
+    external: true
+
+services:
+  web:
+    # GitLab Community Edition is same as GitLab Enterprise Edition Core,
+    # but fully open source.
+    image: gitlab/gitlab-ce
+    restart: unless-stopped
+    environment:
+      VIRTUAL_HOST: gitlab-web
+      LETSENCRYPT_HOST: gitlab-web
+      INITIAL_RUNNER_TOKEN: token
+      # The `GITLAB_OMNIBUS_CONFIG` holds config settings. It would be nicer to have it
+      # in its own file, but having it here helps with keeping the config DRY, using the
+      # `.env` file.
+      #
+      # This instance runs behind a reverse proxy.
+      # The `gitlab/gitlab-ce` image contains its own proxy and SSL setup.
+      # That is amazing, but not what is required for this setup.
+      # To disable it, see:
+      # https://docs.gitlab.com/omnibus/settings/nginx.html#supporting-proxied-ssl
+      # There, it says to keep the 'https' part of `external_url`, however I had to
+      # play around with that a bit, see also:
+      # https://forum.gitlab.com/t/gitlab-redirecting-to-https-although-it-is-disabled/18616
+      # https://forum.gitlab.com/t/gitlab-using-docker-compose-behind-a-nginx-reverse-proxy/26148
+      #
+      # For SMTP config, see:
+      # https://docs.gitlab.com/omnibus/settings/smtp.html#fastmail
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'https://gitlab-web:8929'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2224
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
+        gitlab_rails['initial_root_password'] = 'admin'
+        gitlab_rails['initial_shared_runners_registration_token'] = "token"
+    networks:
+      - default
+      - proxy_default
+    volumes:
+      - /c/Users/sadjoumoumouni/.docker/volumes/gitlab/config:/etc/gitlab
+      - /c/Users/sadjoumoumouni/.docker/volumes/gitlab/logs:/var/log/gitlab
+      - /c/Users/sadjoumoumouni/.docker/volumes/gitlab/data:/var/opt/gitlab
+  runner:
+    image: gitlab/gitlab-runner
+    depends_on:
+      - web
+      - runner_registration
+    volumes:
+      # Give access to Docker for runner to execute jobs.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - runner_config:/etc/gitlab-runner
+  runner_registration:
+    # This will register the runner with the GitLab instance, providing a config file
+    # for the actual runner to read from. After the config file is created, this service
+    # exits.
+    # Note that this process may add the same runner over and over across docker-compose
+    # restarts. This does not seem to be a problem.
+    image: gitlab/gitlab-runner:register
+    environment:
+      - VIRTUAL_HOST
+      - INITIAL_RUNNER_TOKEN
+    depends_on:
+      - web
+    volumes:
+      - runner_config:/etc/gitlab-runner
