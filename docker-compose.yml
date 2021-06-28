@@ -1,10 +1,14 @@
 version: "3.8"
 
 volumes:
-  config:
-  logs:
-  data:
+  gitlab-data:
+    external: true
   runner_config:
+    external: true
+  gitlab-config:
+    external: true
+  gitlab-log:
+    external: true
 
 networks:
   # Join the same network as the reverse proxy from a parallel docker compose.
@@ -18,15 +22,15 @@ services:
   web:
     # GitLab Community Edition is same as GitLab Enterprise Edition Core,
     # but fully open source.
-    image: gitlab/gitlab-ce
-    restart: unless-stopped
+    image: gitlab/gitlab-ce:latest
     ports:
-      - '8929:8929'
       - '2224:22'
+      - '8929:8929'
     environment:
-      VIRTUAL_HOST: gitlab-web
-      LETSENCRYPT_HOST: gitlab-web
-      INITIAL_RUNNER_TOKEN: token
+      VIRTUAL_HOST: 'localhost'
+      LETSENCRYPT_HOST: 'localhost'
+      INITIAL_RUNNER_TOKEN: 'token'
+      GITLAB_ROOT_PASSWORD: 'secret_pass'
       # The `GITLAB_OMNIBUS_CONFIG` holds config settings. It would be nicer to have it
       # in its own file, but having it here helps with keeping the config DRY, using the
       # `.env` file.
@@ -44,19 +48,17 @@ services:
       # For SMTP config, see:
       # https://docs.gitlab.com/omnibus/settings/smtp.html#fastmail
       GITLAB_OMNIBUS_CONFIG: |
-        external_url 'https://gitlab-web:8929'
+        external_url 'http://localhost:8929'
         gitlab_rails['gitlab_shell_ssh_port'] = 2224
-        nginx['listen_port'] = 80
-        nginx['listen_https'] = false
-        gitlab_rails['initial_root_password'] = 'admin'
+        gitlab_rails['initial_root_password'] = 'secret_pass'
         gitlab_rails['initial_shared_runners_registration_token'] = "token"
     networks:
       - default
       - proxy_default
     volumes:
-      - /c/Users/sadjoumoumouni/.docker/volumes/gitlab/config:/etc/gitlab
-      - /c/Users/sadjoumoumouni/.docker/volumes/gitlab/logs:/var/log/gitlab
-      - /c/Users/sadjoumoumouni/.docker/volumes/gitlab/data:/var/opt/gitlab
+      - 'gitlab-config:/etc/gitlab'
+      - 'gitlab-log:/var/log/gitlab'
+      - 'gitlab-data:/var/opt/gitlab'
   runner:
     image: gitlab/gitlab-runner
     depends_on:
