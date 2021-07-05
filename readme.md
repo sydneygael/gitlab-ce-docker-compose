@@ -1,4 +1,4 @@
-This docker-compose file is to start a hosted gitlab with a runner
+This docker-compose file is to start a hosted gitlab with a runner on Docker Desktop (Windows)
 
 - docker network create proxy_default
 - docker volume create gitlab-data

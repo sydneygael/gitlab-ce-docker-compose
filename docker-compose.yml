@@ -23,9 +23,11 @@ services:
     # GitLab Community Edition is same as GitLab Enterprise Edition Core,
     # but fully open source.
     image: gitlab/gitlab-ce:latest
+    hostname: "localhost"
     ports:
       - '2224:22'
       - '8929:8929'
+      - '80:80'
     environment:
       VIRTUAL_HOST: 'localhost'
       LETSENCRYPT_HOST: 'localhost'
@@ -49,6 +51,7 @@ services:
       # https://docs.gitlab.com/omnibus/settings/smtp.html#fastmail
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'http://localhost:8929'
+        registry_external_url 'http://localhost:8929'
         gitlab_rails['gitlab_shell_ssh_port'] = 2224
         gitlab_rails['initial_root_password'] = 'secret_pass'
         gitlab_rails['initial_shared_runners_registration_token'] = "token"
@@ -68,6 +71,7 @@ services:
       # Give access to Docker for runner to execute jobs.
       - /var/run/docker.sock:/var/run/docker.sock
       - runner_config:/etc/gitlab-runner
+    network_mode: "host"
   runner_registration:
     # This will register the runner with the GitLab instance, providing a config file
     # for the actual runner to read from. After the config file is created, this service
@@ -78,9 +82,10 @@ services:
       context: ./runner
     image: gitlab/gitlab-runner:register
     environment:
-      - VIRTUAL_HOST
-      - INITIAL_RUNNER_TOKEN
+      VIRTUAL_HOST: 'localhost:8929'
+      INITIAL_RUNNER_TOKEN: 'token'
     depends_on:
       - web
     volumes:
       - runner_config:/etc/gitlab-runner
+    network_mode: "host"
